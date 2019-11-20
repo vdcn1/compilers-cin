@@ -1,0 +1,14 @@
+read 673 bytes from file 'test.c' and it has 673
+@nom_nom = dso_local local_unnamed_addr global i32 88, allign 4
+@arroz = dso_local local_unnamed_addr global i32 0, allign 4
+define dso_local 2 @aqua_baldo() local_unnamed_addr #0
+{
+	define dso_local 2 @function7(i32, i32) local_unnamed_addr #0
+{
+	define dso_local 1 @kk(i32) local_unnamed_addr #0
+{
+	define dso_local 2 @aster(i32, i32, i32) local_unnamed_addr #0
+{
+	define dso_local 2 @main() local_unnamed_addr #0
+{
+	
