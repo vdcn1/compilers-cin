@@ -9,8 +9,28 @@
 int isStatBlock = 0;
 
 int globalAddrC = 0;
-void print_addr(){
+
+char buffer[256];
+int str_count = 0;
+
+void print_addr(AST* expr){
 	printf("\t %%%d = ", ++globalAddrC);
+	if(expr->expr.binary_expr.operation == '+'){
+		printf("add");
+	}
+	if(expr->expr.binary_expr.operation == '-'){
+		printf("sub");
+	}
+	if(expr->expr.binary_expr.operation == '*'){
+		printf("mul");
+	}
+	if(expr->expr.binary_expr.operation == '/'){
+		printf("sdiv");
+	}
+	if(expr->expr.binary_expr.operation == '%'){
+		printf("srem");
+	}
+	printf("\n");
 	//when ending resolve, \n
 }
 void visit_file (AST *root) {
@@ -45,7 +65,7 @@ void visit_function_decl (AST *ast) {
 			if(ptr->ast->decl.variable.type == 2)
 				printf("i32");
 			params->id.ssa_register = i + 1;
-
+			// printf("registrador: %ld", params->id.ssa_register);
 			//////printm("  param");
 		}
 		//////printm("\n");
@@ -89,7 +109,6 @@ ExprResult visit_stat (AST *stat) {
 		visit_expr(stat->stat.expr.expr); break;
 		default: fprintf(stderr, "UNKNOWN STATEMENT TYPE %c\n", stat->stat.type); break;
 	}
-	printf("\n");
 	return ret;
 	// //////printm("<<< statement\n");
 }
@@ -105,7 +124,8 @@ void visit_var_decl (AST *ast) {
 																	   ast->decl.variable.expr->expr.literal.int_value);
 			else{
 				//	AST *params = ast->decl.function.param_decl_list;
-					print_addr();
+					// print_addr();
+					++globalAddrC;
 					id->id.ssa_register = globalAddrC - 1;
 			}
 	}
@@ -138,28 +158,36 @@ ExprResult visit_expr (AST *expr) {
 	ExprResult ret = {};
 	switch (expr->expr.type) {
 	case BINARY_EXPRESSION:
-		print_addr();
 		switch (expr->expr.binary_expr.operation) {
 		case '+':
-			ret = visit_add(expr); break;
+			ret = visit_add(expr);
+			break;
 		case '-':
-			ret = visit_sub(expr); break;
+			ret = visit_sub(expr); 
+			break;
 		case '*':
-			ret = visit_mul(expr); break;
+			ret = visit_mul(expr); 
+			break;
 		case '/':
-			ret = visit_div(expr); break;
+			ret = visit_div(expr); 
+			break;
 		case '%':
-			ret = visit_mod(expr); break;
+			ret = visit_mod(expr); 
+			break;
 		default:
 			fprintf(stderr, "UNKNOWN OPERATOR %c\n", expr->expr.binary_expr.operation); break;
 		}
+		print_addr(expr);
+		//printf("fim da linha\n");
 		break;
 	case UNARY_MINUS_EXPRESSION:
-		ret = visit_unary_minus(expr); break;
+		ret = visit_unary_minus(expr);
+		break;
 	case LITERAL_EXPRESSION:
 		ret = visit_literal(expr); break;
 	case IDENTIFIER_EXPRESSION:
-		ret = visit_id(expr->expr.id.id); break;
+		ret = visit_id(expr->expr.id.id);
+		break;
 	case FUNCTION_CALL_EXPRESSION:
 		ret = visit_function_call(expr); break;
 	default:
@@ -192,7 +220,7 @@ ExprResult visit_id (AST *ast) {
 	if (ast->id.type == TYPE_INT) {
 		ret.int_value = ast->id.int_value;
 		ret.type = TYPE_INT;
-		printf("%%%ld ", ast->id.ssa_register);
+		//printf("%%%ld ", ast->id.ssa_register);
 	} else if (ast->id.type == TYPE_FLOAT) {
 		ret.float_value = ast->id.float_value;
 		ret.type = TYPE_FLOAT;
@@ -204,7 +232,7 @@ ExprResult visit_id (AST *ast) {
 ExprResult visit_literal (AST *ast) {
 	////printm(">>> literal\n");
 	ExprResult ret = {};
-	printf("%ld", ast->expr.literal.int_value);
+	// printf("%ld", ast->expr.literal.int_value);
 	// ////printm("<<< literal\n");
 	return ret;
 }
@@ -221,10 +249,10 @@ ExprResult visit_add (AST *ast) {
 	////printm(">>> add\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	printf(" add ");
-
+	// printf(" add ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
 	// ////printm("<<< add\n");
+	//printf("\n");
 	return ret;
 }
 
@@ -232,8 +260,9 @@ ExprResult visit_sub (AST *ast) {
 	////printm(">>> sub\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	printf(" sub ");
+	// printf(" sub ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
+	//printf("\n");
 	// ////printm("<<< sub\n");
 	return ret;
 }
@@ -242,9 +271,9 @@ ExprResult visit_mul (AST *ast) {
 	////printm(">>> mul\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	printf(" mul ");
+	// printf(" mul ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
-	printf("\n");
+	//printf("\n");
 	// ////printm("<<< mul\n");
 	return ret;
 }
@@ -253,8 +282,9 @@ ExprResult visit_div (AST *ast) {
 	////printm(">>> div\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	printf(" div ");
+	// printf(" sdiv ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
+	//printf("\n");
 	// ////printm("<<< div\n");
 	return ret;
 }
@@ -263,10 +293,9 @@ ExprResult visit_mod (AST *ast) {
 	////printm(">>> mod\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	printf(" srem ");
+	// printf(" srem ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
-	printf("\n");
-
+	//printf("\n");
 	// //////printm("<<< mod\n");
 	return ret;
 }
