@@ -7,6 +7,7 @@
 #define printm(...) printf(__VA_ARGS__)
 
 int isStatBlock = 0;
+int isLiteral = 0;
 
 int globalAddrC = 0;
 
@@ -15,6 +16,9 @@ int str_count = 0;
 
 void print_addr(AST* expr){
 	printf("\t %%%d = ", ++globalAddrC);
+	if(expr->expr.type == UNARY_MINUS_EXPRESSION){
+		printf("sub");
+	}
 	if(expr->expr.binary_expr.operation == '+'){
 		printf("add");
 	}
@@ -30,7 +34,10 @@ void print_addr(AST* expr){
 	if(expr->expr.binary_expr.operation == '%'){
 		printf("srem");
 	}
+
+	printf(" %ld, %ld", expr->expr.binary_expr.left_expr->id.ssa_register, expr->expr.binary_expr.right_expr->id.ssa_register);
 	printf("\n");
+	isLiteral = 0;
 	//when ending resolve, \n
 }
 void visit_file (AST *root) {
@@ -116,7 +123,7 @@ ExprResult visit_stat (AST *stat) {
 void visit_var_decl (AST *ast) {
 	//////printm(">>> var_decl\n");
 	AST *id = ast->decl.variable.id;
-
+	ast->decl.variable.id->id.ssa_register = globalAddrC;
 	if (ast->decl.variable.expr != NULL) {
 		ExprResult expr = visit_expr(ast->decl.variable.expr);
 			if(!isStatBlock) //print global variables
@@ -125,8 +132,8 @@ void visit_var_decl (AST *ast) {
 			else{
 				//	AST *params = ast->decl.function.param_decl_list;
 					// print_addr();
-					++globalAddrC;
-					id->id.ssa_register = globalAddrC - 1;
+					//++globalAddrC;
+					//id->id.ssa_register = globalAddrC - 1;
 			}
 	}
 	else{
@@ -150,6 +157,8 @@ ExprResult visit_return_stat (AST *ast) {
 void visit_assign_stat (AST *assign) {
 	////printm(">>> assign stat\n");
 	ExprResult expr = visit_expr(assign->stat.assign.expr);
+	assign->id.ssa_register = globalAddrC;
+	printf("my ssa_register: %ld", assign->id.ssa_register);
 	// ////printm("<<< assign stat\n");
 }
 
@@ -184,6 +193,7 @@ ExprResult visit_expr (AST *expr) {
 		ret = visit_unary_minus(expr);
 		break;
 	case LITERAL_EXPRESSION:
+		isLiteral = 1;
 		ret = visit_literal(expr); break;
 	case IDENTIFIER_EXPRESSION:
 		ret = visit_id(expr->expr.id.id);
@@ -220,10 +230,12 @@ ExprResult visit_id (AST *ast) {
 	if (ast->id.type == TYPE_INT) {
 		ret.int_value = ast->id.int_value;
 		ret.type = TYPE_INT;
+		//ast->id.ssa_register = globalAddrC;
 		//printf("%%%ld ", ast->id.ssa_register);
 	} else if (ast->id.type == TYPE_FLOAT) {
 		ret.float_value = ast->id.float_value;
 		ret.type = TYPE_FLOAT;
+		ast->id.ssa_register = globalAddrC;
 	}
 	// ////printm("<<< identifier\n");
 	return ret;
@@ -232,7 +244,7 @@ ExprResult visit_id (AST *ast) {
 ExprResult visit_literal (AST *ast) {
 	////printm(">>> literal\n");
 	ExprResult ret = {};
-	// printf("%ld", ast->expr.literal.int_value);
+	//printf("%ld", ast->expr.literal.int_value);
 	// ////printm("<<< literal\n");
 	return ret;
 }
