@@ -7,7 +7,11 @@
 #define printm(...) printf(__VA_ARGS__)
 
 int isStatBlock = 0;
-
+int globalAddrC = 0;
+void print_addr(){
+	printf("\t %%%d = ", ++globalAddrC);
+	//when ending resolve, \n
+}
 void visit_file (AST *root) {
 	//////printm(">>> file\n");
 	//////printm("file has %d declarations\n", root->list.num_items);
@@ -36,12 +40,13 @@ void visit_function_decl (AST *ast) {
 		for (int i = 0; i < params->list.num_items; i++) {
 			if(i) printf(", ");
 			printf("i32");
+			params->id.ssa_register = i + 1;
 			//////printm("  param");
 		}
 		//////printm("\n");
 	}
 	printf(")");
-	printf(" local_unnamed_addr #0\n");
+	printf(" local_unnamed_addr #0 ");
 	if (ast->decl.function.stat_block != NULL) {
 		visit_stat_block(ast->decl.function.stat_block, params, ast->decl.function.type);
 	}
@@ -51,12 +56,14 @@ void visit_function_decl (AST *ast) {
 // what is surrounded by { }
 ExprResult visit_stat_block (AST *stat_block, AST *params, int return_type) {
 	//////printm(">>> stat_block\n");
-	printf("{\n\t");
+	printf("{\n");
 	ExprResult ret = { 0, TYPE_VOID };
 	isStatBlock = 1;
+	globalAddrC = params != NULL ? params->list.num_items : 0;
 	for (ListNode *ptr = stat_block->list.first; ptr != NULL; ptr = ptr->next) {
 		ret = visit_stat(ptr->ast);
 	}
+	printf("}\n");
 	isStatBlock = 0;
 	// //////printm("<<< stat_block\n");
 	return  ret;
@@ -77,6 +84,7 @@ ExprResult visit_stat (AST *stat) {
 		visit_expr(stat->stat.expr.expr); break;
 		default: fprintf(stderr, "UNKNOWN STATEMENT TYPE %c\n", stat->stat.type); break;
 	}
+	printf("\n");
 	return ret;
 	// //////printm("<<< statement\n");
 }
@@ -90,6 +98,11 @@ void visit_var_decl (AST *ast) {
 			if(!isStatBlock) //print global variables
 			printf("@%s = dso_local local_unnamed_addr global i32 %ld, allign 4\n", ast->decl.variable.id->id.string,
 																	   ast->decl.variable.expr->expr.literal.int_value);
+			else{
+				//	AST *params = ast->decl.function.param_decl_list;
+					print_addr();
+					id->id.ssa_register = globalAddrC - 1;
+			}
 	}
 	else{
 			if(!isStatBlock) //print global variables
@@ -120,6 +133,7 @@ ExprResult visit_expr (AST *expr) {
 	ExprResult ret = {};
 	switch (expr->expr.type) {
 	case BINARY_EXPRESSION:
+		print_addr();
 		switch (expr->expr.binary_expr.operation) {
 		case '+':
 			ret = visit_add(expr); break;
@@ -173,6 +187,7 @@ ExprResult visit_id (AST *ast) {
 	if (ast->id.type == TYPE_INT) {
 		ret.int_value = ast->id.int_value;
 		ret.type = TYPE_INT;
+		printf("%%%ld ", ast->id.ssa_register);
 	} else if (ast->id.type == TYPE_FLOAT) {
 		ret.float_value = ast->id.float_value;
 		ret.type = TYPE_FLOAT;
@@ -200,6 +215,8 @@ ExprResult visit_add (AST *ast) {
 	////printm(">>> add\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
+	printf(" add ");
+
 	right = visit_expr(ast->expr.binary_expr.right_expr);
 	// ////printm("<<< add\n");
 	return ret;
@@ -209,6 +226,7 @@ ExprResult visit_sub (AST *ast) {
 	////printm(">>> sub\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
+	printf(" sub ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
 	// ////printm("<<< sub\n");
 	return ret;
@@ -218,6 +236,7 @@ ExprResult visit_mul (AST *ast) {
 	////printm(">>> mul\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
+	printf(" mul ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
 	// ////printm("<<< mul\n");
 	return ret;
@@ -227,6 +246,7 @@ ExprResult visit_div (AST *ast) {
 	////printm(">>> div\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
+	printf(" div ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
 	// ////printm("<<< div\n");
 	return ret;
@@ -236,6 +256,7 @@ ExprResult visit_mod (AST *ast) {
 	////printm(">>> mod\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
+	printf(" srem ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
 	// //////printm("<<< mod\n");
 	return ret;
