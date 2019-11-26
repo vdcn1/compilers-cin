@@ -3,7 +3,7 @@ int arroz;
 
 int aqua_baldo () {
 	int a0 = 32 * 5;
-	int a1 = a0 % 11 - 2 ;
+	int a1 = a0 % 11 - 2;
 	int a2 = 11 % (6 + a1);
 	return (1 - a0) + a1 % a2;
 }

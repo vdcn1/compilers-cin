@@ -7,6 +7,7 @@
 #define printm(...) printf(__VA_ARGS__)
 
 int isStatBlock = 0;
+
 int globalAddrC = 0;
 void print_addr(){
 	printf("\t %%%d = ", ++globalAddrC);
@@ -34,13 +35,17 @@ void visit_function_decl (AST *ast) {
 	//////printm(">>> function_decl\n");
 	AST *params = ast->decl.function.param_decl_list;
 	char* type = ast->decl.function.type == 1 ? "void" : "int";
-	printf("define dso_local %d @%s", ast->decl.function.type, ast->decl.function.id->id.string);
+	printf("define dso_local %s @%s", type, ast->decl.function.id->id.string);
 	printf("(");
 	if (params != NULL) {
-		for (int i = 0; i < params->list.num_items; i++) {
+		ListNode *ptr;
+		int i = 0;
+		for (ptr = params->list.first; ptr != NULL; ptr = ptr->next, i++) {
 			if(i) printf(", ");
-			printf("i32");
+			if(ptr->ast->decl.variable.type == 2)
+				printf("i32");
 			params->id.ssa_register = i + 1;
+
 			//////printm("  param");
 		}
 		//////printm("\n");
@@ -199,6 +204,7 @@ ExprResult visit_id (AST *ast) {
 ExprResult visit_literal (AST *ast) {
 	////printm(">>> literal\n");
 	ExprResult ret = {};
+	printf("%ld", ast->expr.literal.int_value);
 	// ////printm("<<< literal\n");
 	return ret;
 }
@@ -238,6 +244,7 @@ ExprResult visit_mul (AST *ast) {
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
 	printf(" mul ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
+	printf("\n");
 	// ////printm("<<< mul\n");
 	return ret;
 }
@@ -258,6 +265,8 @@ ExprResult visit_mod (AST *ast) {
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
 	printf(" srem ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
+	printf("\n");
+
 	// //////printm("<<< mod\n");
 	return ret;
 }
