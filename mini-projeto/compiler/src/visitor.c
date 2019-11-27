@@ -12,10 +12,10 @@ int globalAddrC = 0;
 
 char buffer[256];
 int str_count = 0;
-
-void print_addr(AST* expr){
+char* type_func;
+void print_addr(){
 	printf("\t %%%d = ", ++globalAddrC);
-	if(expr->expr.binary_expr.operation == '+'){
+	/*if(expr->expr.binary_expr.operation == '+'){
 		printf("add");
 	}
 	if(expr->expr.binary_expr.operation == '-'){
@@ -29,8 +29,7 @@ void print_addr(AST* expr){
 	}
 	if(expr->expr.binary_expr.operation == '%'){
 		printf("srem");
-	}
-	printf("\n");
+	}*/
 	//when ending resolve, \n
 }
 void visit_file (AST *root) {
@@ -54,18 +53,23 @@ void visit_file (AST *root) {
 void visit_function_decl (AST *ast) {
 	//////printm(">>> function_decl\n");
 	AST *params = ast->decl.function.param_decl_list;
-	char* type = ast->decl.function.type == 1 ? "void" : "int";
-	printf("define dso_local %s @%s", type, ast->decl.function.id->id.string);
+	type_func = ast->decl.function.type == 1 ? "void" : "int";
+	printf("define dso_local %s @%s", type_func, ast->decl.function.id->id.string);
 	printf("(");
 	if (params != NULL) {
 		ListNode *ptr;
+		AST *reg;
 		int i = 0;
 		for (ptr = params->list.first; ptr != NULL; ptr = ptr->next, i++) {
 			if(i) printf(", ");
 			if(ptr->ast->decl.variable.type == 2)
 				printf("i32");
-			params->id.ssa_register = i + 1;
-			// printf("registrador: %ld", params->id.ssa_register);
+			//ptr->ast->decl.variable.id->id.type = LLIR_REGISTER; 
+			ptr->ast->decl.variable.id->id.ssa_register = i;
+			//ptr->ast->decl.variable.id->id.int_value = i+1;
+			//params->id.ssa_register = i+1;
+			//params->id.type = LLIR_REGISTER;
+			//printf("registrador: %ld", ptr->ast->decl.variable.id->id.ssa_register);
 			//////printm("  param");
 		}
 		//////printm("\n");
@@ -88,6 +92,9 @@ ExprResult visit_stat_block (AST *stat_block, AST *params, int return_type) {
 	for (ListNode *ptr = stat_block->list.first; ptr != NULL; ptr = ptr->next) {
 		ret = visit_stat(ptr->ast);
 	}
+	char* typ = "void";
+	if(type_func == typ)
+		printf("\t ret void\n");
 	printf("}\n");
 	isStatBlock = 0;
 	// //////printm("<<< stat_block\n");
@@ -102,7 +109,9 @@ ExprResult visit_stat (AST *stat) {
 	case VARIABLE_DECLARATION:
 		visit_var_decl(stat); break;
 	case ASSIGN_STATEMENT:
-		visit_assign_stat(stat); break;
+		visit_assign_stat(stat);
+		//stat->id.ssa_register = globalAddrC; 
+		break;
 	case RETURN_STATEMENT:
 		ret = visit_return_stat(stat); break;
 	case EXPRESSION_STATEMENT:
@@ -125,8 +134,9 @@ void visit_var_decl (AST *ast) {
 			else{
 				//	AST *params = ast->decl.function.param_decl_list;
 					// print_addr();
-					++globalAddrC;
-					id->id.ssa_register = globalAddrC - 1;
+					//++globalAddrC;
+					//id->id.type = LLIR_REGISTER;
+					//id->id.ssa_register = globalAddrC - 1;
 			}
 	}
 	else{
@@ -143,13 +153,22 @@ ExprResult visit_return_stat (AST *ast) {
 	if (ast->stat.ret.expr) {
 		ret = visit_expr(ast->stat.ret.expr);
 	}
+	char * empty = "";
+	if(type_func == empty)
+		printf("\t ret void %%%d\n", globalAddrC);
+	else
+		printf("\t ret i32 %%%d\n",	 globalAddrC);
 	return ret;
 	// ////printm("<<< return stat\n");
 }
 
-void visit_assign_stat (AST *assign) {
+ExprResult visit_assign_stat (AST *assign) {
 	////printm(">>> assign stat\n");
 	ExprResult expr = visit_expr(assign->stat.assign.expr);
+	expr.ssa_register = globalAddrC;
+	assign->stat.assign.id->id.ssa_register = globalAddrC;
+	//expr.type = LLIR_REGISTER;
+	return expr;
 	// ////printm("<<< assign stat\n");
 }
 
@@ -177,9 +196,9 @@ ExprResult visit_expr (AST *expr) {
 		default:
 			fprintf(stderr, "UNKNOWN OPERATOR %c\n", expr->expr.binary_expr.operation); break;
 		}
-		print_addr(expr);
 		//printf("fim da linha\n");
 		break;
+	// ////printm("<<< expression\n");
 	case UNARY_MINUS_EXPRESSION:
 		ret = visit_unary_minus(expr);
 		break;
@@ -194,7 +213,6 @@ ExprResult visit_expr (AST *expr) {
 		fprintf(stderr, "UNKNOWN EXPRESSION TYPE %c\n", expr->expr.type);
 		break;
 	}
-	// ////printm("<<< expression\n");
 	return ret;
 }
 
@@ -219,11 +237,14 @@ ExprResult visit_id (AST *ast) {
 	ExprResult ret = {}; // armazenar aqui
 	if (ast->id.type == TYPE_INT) {
 		ret.int_value = ast->id.int_value;
-		ret.type = TYPE_INT;
+		//ret.ssa_register = globalAddrC;
+		ret.type = LLIR_REGISTER;
+		ast->id.ssa_register = globalAddrC;
 		//printf("%%%ld ", ast->id.ssa_register);
 	} else if (ast->id.type == TYPE_FLOAT) {
 		ret.float_value = ast->id.float_value;
 		ret.type = TYPE_FLOAT;
+		ast->id.ssa_register = globalAddrC;
 	}
 	// ////printm("<<< identifier\n");
 	return ret;
@@ -232,6 +253,11 @@ ExprResult visit_id (AST *ast) {
 ExprResult visit_literal (AST *ast) {
 	////printm(">>> literal\n");
 	ExprResult ret = {};
+	ast->id.type = LITERAL_EXPRESSION;
+	ast->id.int_value = ast->expr.literal.int_value;
+	ret.type = LITERAL_EXPRESSION;
+	ret.int_value = ast->expr.literal.int_value;
+	// printf("meu literal: %ld\n", ast->expr.literal.int_value);
 	// printf("%ld", ast->expr.literal.int_value);
 	// ////printm("<<< literal\n");
 	return ret;
@@ -241,18 +267,32 @@ ExprResult visit_unary_minus (AST *ast) {
 	////printm(">>> unary_minus\n");
 	ExprResult expr, ret = {};
 	expr = visit_expr(ast->expr.unary_minus.expr);
+	print_addr();
+	expr.ssa_register = globalAddrC;
+	expr.type = LLIR_REGISTER;
+	printf("sub i32 0, %%%d\n", globalAddrC);
 	// ////printm("<<< unary_minus\n");
-	return ret;
+	return expr;
 }
 
 ExprResult visit_add (AST *ast) {
 	////printm(">>> add\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	// printf(" add ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
+	print_addr();
+	printf("add nsw i32 ");
+	if(left.type == LLIR_REGISTER)
+		printf("%%%ld, ", left.ssa_register);
+	else
+		printf("%ld, ", left.int_value);
+	if(right.type == LLIR_REGISTER)
+		printf("%%%ld\n", right.ssa_register);
+	else
+		printf("%ld\n", right.int_value);
+	ret.ssa_register = globalAddrC;
+	ret.type = LLIR_REGISTER;
 	// ////printm("<<< add\n");
-	//printf("\n");
 	return ret;
 }
 
@@ -260,9 +300,19 @@ ExprResult visit_sub (AST *ast) {
 	////printm(">>> sub\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	// printf(" sub ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
-	//printf("\n");
+	print_addr();
+	printf("sub i32 ");
+	if(left.type == LLIR_REGISTER)
+		printf("%%%ld, ", left.ssa_register);
+	else
+		printf("%ld, ", left.int_value);
+	if(right.type == LLIR_REGISTER)
+		printf("%%%ld\n", right.ssa_register);
+	else
+		printf("%ld\n", right.int_value);
+	ret.ssa_register = globalAddrC;
+	ret.type = LLIR_REGISTER;
 	// ////printm("<<< sub\n");
 	return ret;
 }
@@ -271,9 +321,19 @@ ExprResult visit_mul (AST *ast) {
 	////printm(">>> mul\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	// printf(" mul ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
-	//printf("\n");
+	print_addr();
+	printf("mul i32 ");
+	if(left.type == LLIR_REGISTER)
+		printf("%%%ld, ", left.ssa_register);
+	else
+		printf("%ld, ", left.int_value);
+	if(right.type == LLIR_REGISTER)
+		printf("%%%ld\n", right.ssa_register);
+	else
+		printf("%ld\n", right.int_value);
+	ret.ssa_register = globalAddrC;
+	ret.type = LLIR_REGISTER;
 	// ////printm("<<< mul\n");
 	return ret;
 }
@@ -282,9 +342,19 @@ ExprResult visit_div (AST *ast) {
 	////printm(">>> div\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	// printf(" sdiv ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
-	//printf("\n");
+	print_addr();
+	printf("sdiv i32 ");
+	if(left.type == LLIR_REGISTER)
+		printf("%%%ld, ", left.ssa_register);
+	else
+		printf("%ld, ", left.int_value);
+	if(right.type == LLIR_REGISTER)
+		printf("%%%ld\n", right.ssa_register);
+	else
+		printf("%ld\n", right.int_value);
+	ret.ssa_register = globalAddrC;
+	ret.type = LLIR_REGISTER;
 	// ////printm("<<< div\n");
 	return ret;
 }
@@ -293,9 +363,19 @@ ExprResult visit_mod (AST *ast) {
 	////printm(">>> mod\n");
 	ExprResult left, right, ret = {};
 	left  = visit_expr(ast->expr.binary_expr.left_expr);
-	// printf(" srem ");
 	right = visit_expr(ast->expr.binary_expr.right_expr);
-	//printf("\n");
+	print_addr();
+	printf("srem i32 ");
+	if(left.type == LLIR_REGISTER)
+		printf("%%%ld, ", left.ssa_register);
+	else
+		printf("%ld, ", left.int_value);
+	if(right.type == LLIR_REGISTER)
+		printf("%%%ld\n", right.ssa_register);
+	else
+		printf("%ld\n", right.int_value);
+	ret.ssa_register = globalAddrC;
+	ret.type = LLIR_REGISTER;
 	// //////printm("<<< mod\n");
 	return ret;
 }
